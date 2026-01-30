@@ -254,7 +254,7 @@ export class PolicyStore {
 
     // Generate explanation for each type
     for (const [type, typePolicies] of byType) {
-      const typeLabel = POLICY_TYPE_LABELS[type];
+      const typeLabel = POLICY_TYPE_LABELS[type as PolicyType];
       const items = typePolicies.map(p => `  • ${p.label}`).join("\n");
       sections.push(`**${typeLabel}:**\n${items}`);
     }

@@ -33,16 +33,7 @@ export const RecurrenceSchema = z.object({
   daysOfWeek: z.array(DayOfWeekSchema).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-}).refine(
-  (data) => {
-    // Weekly/biweekly must have daysOfWeek
-    if (["weekly", "biweekly"].includes(data.type) && (!data.daysOfWeek || data.daysOfWeek.length === 0)) {
-      return false;
-    }
-    return true;
-  },
-  { message: "Weekly/biweekly recurrence must specify daysOfWeek" }
-);
+});
 export type Recurrence = z.infer<typeof RecurrenceSchema>;
 
 // =============================================================================
@@ -97,10 +88,7 @@ export const BookingWindowPolicySchema = z.object({
   policyType: z.literal("BOOKING_WINDOW"),
   minAdvanceHours: z.number().min(0),
   maxAdvanceDays: z.number().min(1).max(365),
-}).refine(
-  (data) => data.minAdvanceHours <= data.maxAdvanceDays * 24,
-  { message: "minAdvanceHours must be less than maxAdvanceDays" }
-);
+});
 
 // =============================================================================
 // Combined Policy Schema
@@ -116,7 +104,7 @@ export const PolicyDataSchema = z.discriminatedUnion("policyType", [
 ]);
 
 export type PolicyData = z.infer<typeof PolicyDataSchema>;
-export type PolicyType = PolicyData["policyType"];
+export type PolicyType = "AVAILABILITY" | "BLOCK" | "OVERRIDE" | "DURATION" | "APPOINTMENT_TYPE" | "BOOKING_WINDOW";
 
 // =============================================================================
 // Full Policy (with metadata)
