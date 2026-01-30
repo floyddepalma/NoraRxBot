@@ -10,6 +10,7 @@
  * - Get human-readable policy explanations
  */
 
+import "dotenv/config";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -20,7 +21,7 @@ import {
 import { PolicyStore } from "./db/policy-store.js";
 import { validatePolicy, type Policy, type PolicyType } from "./schemas/policy-schema.js";
 
-// Initialize the policy store (SQLite)
+// Initialize the policy store (Neon Postgres)
 const store = new PolicyStore();
 
 // Define the tools this MCP server exposes
@@ -129,14 +130,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: TOOLS
 }));
 
-// Handle tool calls
+// Handle tool calls (all async for Neon)
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     switch (name) {
       case "policy_list": {
-        const policies = store.list({
+        const policies = await store.list({
           doctorId: args?.doctorId as string | undefined,
           policyType: args?.policyType as PolicyType | undefined,
           activeOnly: args?.activeOnly !== false
@@ -145,7 +146,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "policy_get": {
-        const policy = store.get(args?.id as string);
+        const policy = await store.get(args?.id as string);
         if (!policy) {
           return { content: [{ type: "text", text: JSON.stringify({ error: "Policy not found" }) }] };
         }
@@ -169,7 +170,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const policy = store.create({
+        const policy = await store.create({
           doctorId: args?.doctorId as string,
           policyType: args?.policyType as PolicyType,
           label: args?.label as string,
@@ -179,7 +180,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "policy_update": {
-        const updated = store.update(args?.id as string, {
+        const updated = await store.update(args?.id as string, {
           label: args?.label as string | undefined,
           policyData: args?.policyData as object | undefined,
           isActive: args?.isActive as boolean | undefined
@@ -191,12 +192,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "policy_delete": {
-        const deleted = store.delete(args?.id as string);
+        const deleted = await store.delete(args?.id as string);
         return { content: [{ type: "text", text: JSON.stringify({ success: deleted }) }] };
       }
 
       case "policy_check": {
-        const conflicts = store.checkConflicts({
+        const conflicts = await store.checkConflicts({
           doctorId: args?.doctorId as string,
           action: args?.action as "book" | "block" | "reschedule",
           dateTime: new Date(args?.dateTime as string),
@@ -206,7 +207,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "policy_explain": {
-        const explanation = store.explain(args?.doctorId as string);
+        const explanation = await store.explain(args?.doctorId as string);
         return { content: [{ type: "text", text: explanation }] };
       }
 
@@ -221,6 +222,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
+  // Initialize database tables
+  console.error("Initializing database...");
+  await store.init();
+  console.error("Database ready.");
+  
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Nora Policy MCP server running on stdio");
